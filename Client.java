@@ -176,7 +176,7 @@ public class Client {
         Client myClient = new Client();
         myClient.connectToServer();
         
-        System.out.println("Welcome to the CS4390 chat server!");
+        System.out.println("Welcome to the CS4389 chat server!");
         System.out.print("Please enter a username to register: ");
         
         while(!myClient.isRegistered())
