@@ -1,4 +1,4 @@
-package java;
+package security;
 
 ////////////////////////////////////////////////
 //File:    Server.java

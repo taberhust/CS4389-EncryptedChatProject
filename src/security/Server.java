@@ -1,4 +1,4 @@
-package java;
+package security;
 
 ////////////////////////////////////////////////
 //File:    Server.java
@@ -45,7 +45,7 @@ public class Server
 	//For IDE
 	//private final static String propertiesDir = "src/properties/";
 	//For linux
-	private final static String propertiesDir = "properties/";
+	private final static String propertiesDir = "src/properties/";
 	private final static String usernames = "usernames.txt";
 	
 	public Server()
