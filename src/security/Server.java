@@ -12,6 +12,7 @@ package security;
 //Socket Libraries
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.InetAddress;
 
 //I/O Libaries for Properties and Sockets
 import java.io.FileInputStream;
@@ -35,7 +36,7 @@ public class Server
 	
 	private ArrayList<Username> usernameList;
 	
-	private static final String hostName = "net01.utdallas.edu";
+	private static final String hostName = "localhost";
 	private static final int port[] = {9090,9091};
 	private int nextID;
 	
@@ -64,6 +65,8 @@ public class Server
 			{
 				usernameList.add(new Username(io.nextLine()));
 			}
+			
+			io.close();
 		}
 		catch(Exception ex)
 		{
@@ -83,8 +86,7 @@ public class Server
 			{
 				listener = new ServerSocket(port[i]);
 				System.out.println("Server running on...");
-				System.out.println("Host: " + hostName);
-				System.out.println("Port: " + port[i]);
+				System.out.println("Port: " + listener.getLocalPort());
 				
 				while(true)
 				{
