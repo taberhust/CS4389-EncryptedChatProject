@@ -14,6 +14,7 @@ import java.net.Socket;
 //I/O Libaries for Properties and Sockets
 import java.io.FileInputStream;
 import java.io.PrintWriter;
+import java.io.IOException;
 import java.util.Scanner;
 
 //Properties file
@@ -28,49 +29,39 @@ import java.util.concurrent.Semaphore;
 public class Server {
     private ServerSocket listener;
     protected ArrayList<ServerListener> clients;
-    private String hostName;
-    private int port;
+    
+    private ArrayList<Username> usernameList;
+    
+    private static final String hostName = "net01.utdallas.edu";
+    private static final int port[] = {9090,9091};
     private int nextID;
     
     //Generate semaphore for making registration thread safe
     Semaphore register = new Semaphore(1);
     
-    private Properties properties;
-    
     //For IDE
     //private final static String propertiesDir = "src/properties/";
     //For linux
     private final static String propertiesDir = "properties/";
-    private final static String propertiesFile = "server.properties";
+    private final static String usernames = "usernames.txt";
     
     public Server()
     {
         //Start id at 0
         nextID = 0;
+        usernameList = new ArrayList<>();
         try{
             //Initalize objects
             clients = new ArrayList<>();
             //Get input stream for properties file
-            FileInputStream io = new FileInputStream(propertiesDir + propertiesFile);
-            
-            //Initialize properties object and load from input stream
-            properties = new Properties();
-            properties.load(io);
-            
-            hostName = properties.getProperty("domain");
-            String portS = properties.getProperty("port");
-            if (portS != null)
-            {
-                port = Integer.parseInt(portS);
-            }
-            else //port not specified in properties, use 9090 as default
-            {
-                port = 9090;
+            Scanner io = new Scanner(new FileInputStream(propertiesDir + usernames));
+            while(io.hasNextLine()){
+            	usernameList.add(new Username(io.nextLine()));
             }
         }
         catch(Exception ex)
         {
-            System.out.println("FATAL: Server failed to load properties file. Make sure properties file is in the proper location.");
+            System.out.println("FATAL: Server failed to load usernames. Make sure usernames.txt is in the proper location.");
             System.out.println(ex.toString());
             System.exit(-1);
         }
@@ -80,30 +71,46 @@ public class Server {
     public void startServer()
     {
         ServerListener currClient;
-        try{
-            listener = new ServerSocket(port);
-            
-            while(true){
-                try{
-                    Socket socket = listener.accept();
-                    currClient = new ServerListener(nextID++,socket);
-                    clients.add(currClient);
-                    Thread thread = new Thread(currClient);
-                    thread.start();
-                }
-                catch(Exception ex)
-                {
-                    System.out.println("FATAL: Server failed to create socket for client");
-                    System.out.println(ex.toString());
-                    break;
-                }
-            }
-        }
-        catch(Exception ex)
+        for(int i = 0; i < port.length; i++)
         {
-            System.out.println("FATAL: Server failed to create server socket.");
-            System.out.println(ex.toString());
-            System.exit(-1);
+	        try{
+	            listener = new ServerSocket(port[i]);
+	            System.out.println("Server running on...");
+	            System.out.println("Host: " + hostName);
+	            System.out.println("Port: " + port[i]);
+	            
+	            while(true){
+	                try{
+	                    Socket socket = listener.accept();
+	                    currClient = new ServerListener(nextID++,socket);
+	                    clients.add(currClient);
+	                    Thread thread = new Thread(currClient);
+	                    thread.start();
+	                }	                
+	                catch(Exception ex)
+	                {
+	                    System.out.println("FATAL: Server failed to create socket for client");
+	                    System.out.println(ex.toString());
+	                    break;
+	                }
+	            }
+	        }
+	        catch(IOException IOEx)
+	        {
+	        	if(i == 1)
+	        	{
+	        		System.out.println("Servers already started on designated ports.");
+	        		System.out.println(IOEx.toString());
+	        		System.exit(0);
+	        	}
+	        	continue;
+	        }
+	        catch(Exception ex)
+            {
+            	System.out.println("FATAL: Server failed to create server socket.");
+            	System.out.println(ex.toString());
+            	System.exit(-1);
+            }
         }
     }
     
