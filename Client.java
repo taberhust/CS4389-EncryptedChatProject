@@ -260,37 +260,8 @@ public class Client extends Application {
     }
     
     public static void main(String[] args)
-<<<<<<< HEAD
     {        
         launch(args);
-=======
-    {
-        String msg = "";
-        Scanner input = new Scanner(System.in);
-        
-        Client myClient = new Client();
-        myClient.connectToServer();
-        
-        System.out.println("Welcome to the CS4389 chat server!");
-        System.out.print("Please enter a username to register: ");
-        
-        while(!myClient.isRegistered())
-        {
-            if(!myClient.isWaiting())
-            {
-                msg = input.nextLine();
-                myClient.sendUsername(msg);
-                myClient.setWait(true);
-            }
-        }
-        
-        while(!msg.equalsIgnoreCase("EXIT"))
-        {
-            msg = input.nextLine();
-            myClient.sendMsg(msg);
-        }
->>>>>>> 4d93daa5d566399d29008b8ae6046ba30bf31fe3
-        
         System.exit(0);
     }
     
@@ -388,3 +359,4 @@ public class Client extends Application {
         }
     }
 }
+
