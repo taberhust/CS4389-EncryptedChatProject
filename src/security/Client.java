@@ -32,18 +32,14 @@ import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.stage.Stage;
 
+import java.io.IOException;
+
 public class Client extends Application 
 {
-	//Properties file directory and file name
-	//For IDE
-	//private final static String propertiesDir = "src/properties/";
-	//For linux
-	private final static String propertiesDir = "properties/";
-	private final static String propertiesFile = "server.properties";
 	
 	//Stores server information
-	private String serverAddress;
-	private String serverPort;
+	private static final String serverAddress = "localhost";
+	private static final int[] serverPort = {9090,9091};
 	
 	private String userName;
 	
@@ -54,9 +50,6 @@ public class Client extends Application
 	
 	//Thread class for incoming chat message listeners
 	private ClientListener msgListener;
-	
-	//Properties file
-	private Properties serverProperties;
 	
 	private Thread listener;
 	
@@ -73,17 +66,9 @@ public class Client extends Application
 	{
 		primaryStage.setOnCloseRequest(e -> hardCloseConnections());
 		btSend.setOnAction(e -> 
-		{ 
-			if(registered) 
-			{
-				sendMsg(messageBox.getText());
-				messageBox.setText("");
-			}
-			else 
-			{
-				sendUsername(messageBox.getText());
-				messageBox.setText("");
-			}
+		{
+			sendMsg(messageBox.getText());
+			messageBox.setText("");
 		});
 		
 		btDisconnect.setOnAction(e -> closeConnections());
@@ -97,7 +82,7 @@ public class Client extends Application
 		messageBox.setPrefHeight(50);
 		messageBox.setWrapText(true);
 		
-		chatBox.appendText("Welcome to the CS4390 chat server!\n");
+		chatBox.appendText("Welcome to the CS4389 chat server!\n");
 		chatBox.appendText("Please enter a username to register: \n");
 		
 		BorderPane mainPane = new BorderPane();
@@ -122,55 +107,51 @@ public class Client extends Application
 	}	// End of start function
 	
 	/**
-	* Default constructor for client
-	* Loads server properties from server.properties
-	* Initializes variables when necessary
-	*/    
-	public Client()
-	{
-		try{
-			//Input stream from server.properties
-			FileInputStream propertyIO = new FileInputStream(propertiesDir + propertiesFile);
-			
-			//Load properties into serverProperties using input stream
-			serverProperties = new Properties();
-			serverProperties.load(propertyIO);
-			
-			serverAddress = serverProperties.getProperty("domain");
-			serverPort = serverProperties.getProperty("port");
-			
-			registered = false;
-			waiting = false;
-		}
-		catch(Exception ex)
-		{
-			chatBox.appendText("FATAL: Program failed to load properties file from properties directory.\n");
-			chatBox.appendText(ex.toString() + "\n");
-			//System.exit(-1);
-		}
-	}
-	
-	/**
 	* Connects to server using parameters found in properties file
 	*/
 	public void connectToServer()
 	{
-		//Connect to server and initialize input/output streams
-		try{
-			communication = true;
-			serverSocket = new Socket(serverAddress, Integer.parseInt(serverPort));
-			serverInput = new Scanner(serverSocket.getInputStream());
-			clientOutput = new PrintWriter(serverSocket.getOutputStream());
-			
-			listener = new Thread(new ClientListener(serverSocket));
-			listener.start();
-		}
-		catch(Exception ex)
+		for(int i = 0; i < serverPort.length; i++)
 		{
-			chatBox.appendText("FATAL: Could not connect to client. Check server domain and port for correctness.\n");
-			chatBox.appendText("NOTE: This may be a result of not being connected to the UTD network.\nProgram must be run from the UTD network.\n");
-			chatBox.appendText(ex.toString() + "\n");
-			//System.exit(-1);
+			//Connect to server and initialize input/output streams
+			try{
+				communication = true;
+				serverSocket = new Socket(serverAddress, serverPort[i]);
+				serverInput = new Scanner(serverSocket.getInputStream());
+				clientOutput = new PrintWriter(serverSocket.getOutputStream());
+				
+				listener = new Thread(new ClientListener(serverSocket));
+				listener.start();
+				break;
+			}
+			catch(IOException IOEx)
+			{
+				if(i==1)
+				{
+					chatBox.appendText("FATAL: Client could not connect to server.");
+					chatBox.appendText(IOEx.toString());
+					//System.exit(-1);
+				}
+				continue;
+			}
+			catch(Exception ex)
+			{
+				chatBox.appendText("FATAL: Unexpected exception.");
+				chatBox.appendText(ex.toString() + "\n");
+				//System.exit(-1);
+			}
+		}
+	}
+	
+	private void listenToServer()
+	{
+		while(communication == true)
+		{
+			if(this.serverInput.hasNext())
+			{
+				String msg = this.serverInput.nextLine();
+				chatBox.appendText(msg);
+			}
 		}
 	}
 	
@@ -309,6 +290,7 @@ public class Client extends Application
 				if(serverInputStream.hasNext())
 				{
 					msg = serverInputStream.nextLine();
+					System.out.println("\"" + msg + "\" was received from server");
 					header = msg.substring(0,msg.indexOf(" "));
 					msg = msg.substring(header.length() + 1);
 					
@@ -318,9 +300,7 @@ public class Client extends Application
 							handleError(Integer.parseInt(msg));
 							break;
 						case "MSG":
-							sender = msg.substring(0,msg.indexOf(" "));
-							msg = msg.substring(sender.length() + 1);
-							chatBox.appendText(sender + ": " + msg +"\n");
+							chatBox.appendText(msg +"\n");
 							break;
 						case "ACK":
 							if(msg.equals("EXIT"))

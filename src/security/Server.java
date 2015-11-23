@@ -222,14 +222,7 @@ public class Server
 								}
 								break;
 							case "MESG":
-								if(userName.equals(""))
-								{
-									clientOutput.println("ERR 4");
-								}
-								else
-								{
-									broadcastMessage(this.userName,msg);
-								}
+								broadcastMessage(this.userName,msg);
 								break;
 							case "PMSG":
 								if(userName.equals(""))
@@ -349,7 +342,9 @@ public class Server
 	
 		private void broadcastMessage(String username, String mesg)
 		{
+			/*
 			PrintWriter tempOutput;
+			
 			ServerListener temp;
 			Iterator<ServerListener> iterator = clients.iterator();
 			while(iterator.hasNext())
@@ -361,7 +356,9 @@ public class Server
 					tempOutput.println("MSG " + username + " " + mesg);
 					tempOutput.flush();
 				}
-			}
+			}*/
+			System.out.println("Sending: \"MSG " + mesg + "\" to client.");
+			this.clientOutput.println("MSG " + mesg);
 		}
 	
 		private void sendPrivateMessage(String username, String mesg)
