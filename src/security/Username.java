@@ -12,12 +12,12 @@ package security;
 public class Username
 {
 	private String name;
-	private boolean taken;
+	private boolean available;
 	
 	public Username(String name)
 	{
 		this.name = name;
-		this.taken = false;
+		this.available = true;
 	}
 	
 	public String getName()
@@ -30,18 +30,18 @@ public class Username
 		this.name = name;
 	}
 	
-	public boolean getTaken()
+	public boolean isAvailable()
 	{
-		return this.taken;
+		return this.available;
 	}
 	
-	public void setTaken()
+	public void resetAvailable()
 	{
-		this.taken = true;
+		this.available = true;
 	}
 	
-	public void setOpen()
+	public void setNotAvailable()
 	{
-		this.taken = false;
+		this.available = false;
 	}
 }
