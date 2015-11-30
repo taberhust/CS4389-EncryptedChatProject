@@ -20,6 +20,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 import java.net.*;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Scanner;
 import java.util.ArrayList;
 
@@ -36,14 +37,16 @@ import javafx.stage.Stage;
 public class Client extends Application 
 {		
 	//Stores server information
-	private final static String serverAddress = "localhost";
-	private final static int [] serverPort = {9090, 9091};
+	private final static String defaultServerAddress = "localhost";
+	private final static int [] defaultServerPort = {9090, 9091};
 	private final static int headerLength = 3;
 	
 	//Input and output streams to server and associated socket
 	private DataInputStream serverInput;
 	private DataOutputStream clientOutput;
 	private Socket serverSocket;
+	private String serverAddress;
+	private int[] serverPort;
 	
 	//Thread class for incoming chat message listeners
 	private ClientListener msgListener;
@@ -67,8 +70,38 @@ public class Client extends Application
 	private TextField messageBox = new TextField();
 	private static TextArea chatBox = new TextArea();
 	
+	public void setHost(String host)
+	{
+		serverAddress = host;
+	}
+	
+	public void setPorts(int[] ports)
+	{
+		serverPort = ports;
+	}
+	
 	public void start(Stage primaryStage) throws Exception
 	{
+		/* Collect arguments and pass to correct variables */
+		Parameters argParams = getParameters();
+		List<String> args = argParams.getRaw();
+		if(args.size() < 2)
+		{
+			System.out.println("Use: java Client <host name> <port #1> <alternate port #1> ... <alternate port #n>");
+			System.out.println("Using default: <host name> = \"net01.utdallas.edu\" and <port #> = \"9090\" or \"9091\"");
+			setHost(defaultServerAddress);
+			setPorts(defaultServerPort);
+		}
+		else
+		{
+			setHost(args.get(0));
+			int[] portNum = new int[args.size() - 1];
+			for(int i = 0; i < portNum.length; i++)
+			{
+				portNum[i] = Integer.parseInt(args.get(i + 1));
+			}
+			setPorts(portNum);
+		}
 		btSend.setDefaultButton(true);
 		btDisconnect.setCancelButton(true);
 		primaryStage.setOnCloseRequest(e -> closeConnections());
@@ -119,6 +152,23 @@ public class Client extends Application
 		
 		connectToServer();
 	}	// End of start function
+	
+	private byte[] sign(byte[] msg)
+	{
+		byte[] signature = null;
+		try{
+			Signature sign = Signature.getInstance("SHA1withRSA");
+			sign.initSign(this.privKey);
+			sign.update(msg);
+			signature = sign.sign();
+		}
+		catch(Exception ex)
+		{
+			System.out.println(ex.toString());
+		}
+		
+		return signature;
+	}
 	
 	private boolean keysGenerated()
 	{
@@ -176,6 +226,7 @@ public class Client extends Application
 		byte[] header = "SKEY ".getBytes();
 		byte[] sessionKeyBytes;
 		byte[] pubKeyBytes = this.pubKey.getEncoded();
+		byte[] signBytes;
 		byte[] msg = new byte[pubKeyBytes.length + header.length];
 		for(int i = 0; i < header.length; i++)
 		{
@@ -186,19 +237,32 @@ public class Client extends Application
 			msg[i + header.length] = pubKeyBytes[i];
 		}
 		try{
+			//Send SKEY and public key
 			clientOutput.writeInt(msg.length);
 			clientOutput.write(msg, 0, msg.length);
 			
+			signBytes = sign(pubKeyBytes);
+			clientOutput.writeInt(signBytes.length);
+			clientOutput.write(signBytes, 0, signBytes.length);
+			
 			int sessionKeySize = serverInput.readInt();
-			sessionKeyBytes = new byte[sessionKeySize];
-			int bytesRead = serverInput.read(sessionKeyBytes, 0, sessionKeySize);
-			if(sessionKeySize != bytesRead)
+			if(sessionKeySize != 0)
 			{
-				System.out.println("FATAL: Client did not retrieve the whole session key byte array.");
+				sessionKeyBytes = new byte[sessionKeySize];
+				int bytesRead = serverInput.read(sessionKeyBytes, 0, sessionKeySize);
+				if(sessionKeySize != bytesRead)
+				{
+					System.out.println("FATAL: Client did not retrieve the whole session key byte array.");
+				}
+				else
+				{
+					setSessionKey(decryptWithPrivateKey(sessionKeyBytes));
+				}
 			}
 			else
 			{
-				setSessionKey(decryptWithPrivateKey(sessionKeyBytes));
+				displayMessage("ERROR: Possible security threat detected. Exiting system for your protection.");
+				closeConnections();
 			}
 		}
 		catch(Exception ex)

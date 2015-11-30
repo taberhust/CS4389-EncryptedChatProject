@@ -14,6 +14,7 @@ import java.io.*;
 import java.util.*;
 import java.security.KeyFactory;
 import java.security.PublicKey;
+import java.security.Signature;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -30,8 +31,9 @@ public class Server
 	private ArrayList<Username> usernameList;
 	
 	private static final String hostName = "localhost";
-	private static final int port[] = {9090,9091};
 	private static final int headerLength = 4;
+	
+	private int port;
 	
 	//Generate semaphore for making registration thread safe
 	Semaphore register = new Semaphore(1);
@@ -71,6 +73,11 @@ public class Server
 		generateSessionKey();
 	}
 	
+	public void setPort(int portNum)
+	{
+		this.port = portNum;
+	}
+	
 	private void generateSessionKey()
 	{
 		try{
@@ -85,18 +92,33 @@ public class Server
 		}
 	}
 	
+	public boolean checkSignature(PublicKey pubKey, byte[] msg, byte[] signature)
+	{
+		boolean verified = false;
+		try{
+			Signature verifier = Signature.getInstance("SHA1withRSA");
+			verifier.initVerify(pubKey);
+			verifier.update(msg);
+			verified = verifier.verify(signature);
+		}
+		catch(Exception ex)
+		{
+			System.out.println(ex.toString());
+		}
+		
+		return verified;
+	}
+	
 	//Start server without a given port number
 	public void startServer()
 	{
 		ServerListener currClient;
-		for(int i = 0; i < port.length; i++)
-		{
 			try
 			{
-				listener = new ServerSocket(port[i]);
+				listener = new ServerSocket(port);
 				System.out.println("Server running on...");
 				System.out.println("Host: " + hostName);
-				System.out.println("Port: " + port[i]);
+				System.out.println("Port: " + port);
 				
 				while(true)
 				{
@@ -118,13 +140,9 @@ public class Server
 			}
 			catch(IOException IOEx)
 			{
-				if(i == 1)
-				{
-					System.out.println("Servers already started on designated ports.");
-					System.out.println(IOEx.toString());
-					System.exit(0);
-				}
-				continue;
+				System.out.println("Servers already started on designated port.");
+				System.out.println(IOEx.toString());
+				System.exit(0);
 			}
 			catch(Exception ex)
 			{
@@ -132,7 +150,6 @@ public class Server
 				System.out.println(ex.toString());
 				System.exit(-1);
 			}
-		}
 	}
 	
 	private byte[] encrypt(byte[] msgBytes, int offset, int length)
@@ -194,10 +211,14 @@ public class Server
 		Server myServer = new Server();
 		if(args.length == 1)
 		{
+			myServer.setPort(Integer.parseInt(args[0]));
 			myServer.startServer();
 		}
 		else
 		{
+			System.out.println("Use: java Server <port #>");
+			System.out.println("Using default port 9090");
+			myServer.setPort(9090);
 			myServer.startServer();
 		}
 		
@@ -267,7 +288,14 @@ public class Server
 								broadcastMessage(msgBytes, headerLength+1, msgLength - (headerLength + 1));
 								break;
 							case "SKEY":
-								sendSessionKey(retrievePublicKey(msgBytes, headerLength + 1, msgLength - (headerLength + 1)));
+								this.userPubKey = retrievePublicKey(msgBytes, headerLength +1, msgLength - (headerLength +1));
+								if(checkSignature(this.userPubKey, this.userPubKey.getEncoded(), retrieveSignature()))
+									sendSessionKey(retrievePublicKey(msgBytes, headerLength + 1, msgLength - (headerLength + 1)));
+								else{
+									clientOutput.writeInt(0);
+									clientOutput.write(null, 0, 0);
+									clientOutput.flush();
+								}
 								break;
 							case "EXIT":
 								deregisterUser();
@@ -285,6 +313,28 @@ public class Server
 				System.out.println("FATAL: Client Handler failed to create input stream for receiving client requests.");
 				System.out.println(ex.toString());
 			}
+		}
+		
+		private byte[] retrieveSignature()
+		{
+			int msgLength, bytesRead;
+			byte[] msgBytes = null;
+			try{
+				msgLength = clientInput.readInt();
+				msgBytes = new byte[msgLength];
+				bytesRead = clientInput.read(msgBytes, 0, msgLength);
+				if(bytesRead != msgLength)
+				{
+					System.out.println("Server failed to read correct number of bytes for signature.");
+					System.out.println(bytesRead + "/" + msgLength + " bytes read.");
+				}
+			}
+			catch(Exception ex)
+			{
+				System.out.println(ex.toString());
+			}
+			
+			return msgBytes;
 		}
 		
 		private PublicKey retrievePublicKey(byte[] msgBytes, int offset, int length)
